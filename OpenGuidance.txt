@@ -1,0 +1,3 @@
+This project runs on Unity 2018.4.36f1, and can only be opened with Kinect connected. 
+Our set-up environment is Kinect for Windows SDK 2.0 with XBox One Kinect 2 v2 Motion Sensor.
+https://microsoft.com/en-hk/download/details.aspx?id=44561
