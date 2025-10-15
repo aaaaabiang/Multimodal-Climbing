@@ -64,11 +64,11 @@ public class BodySourceView : MonoBehaviour
     void Start()
     {
         // 检查场景中是否已经存在一个 Audio Listener
-        if (FindObjectOfType<AudioListener>() != null && mAudioListener == null)
-        {
-            Debug.LogWarning("场景中已经存在一个 Audio Listener。");
-            return;
-        }
+        //if (FindObjectOfType<AudioListener>() != null && mAudioListener == null)
+        //{
+        //    Debug.LogWarning("场景中已经存在一个 Audio Listener。");
+        //    return;
+        //}
     }
 
     void Update () 
@@ -197,24 +197,24 @@ public class BodySourceView : MonoBehaviour
             Transform jointObject = bodyObject.transform.Find(_joint.ToString());
             jointObject.position = targetPosition;
 
-            // 如果是 Head 关节，将 Audio Listener 移动到该位置
-            if (_joint == JointType.Head)
-            {
-                if (mAudioListener == null)
-                {
-                    // 如果没有 Audio Listener，则创建一个并附加到 Head 关节
-                    mAudioListener = jointObject.gameObject.AddComponent<AudioListener>();
-                }
-                else
-                {
-                    // 如果已有 Audio Listener，则更新其位置
-                    mAudioListener.transform.position = targetPosition;
+            //// 如果是 Head 关节，将 Audio Listener 移动到该位置
+            //if (_joint == JointType.FootLeft)
+            //{
+            //    if (mAudioListener == null)
+            //    {
+            //        // 如果没有 Audio Listener，则创建一个并附加到 Head 关节
+            //        mAudioListener = jointObject.gameObject.AddComponent<AudioListener>();
+            //    }
+            //    else
+            //    {
+            //        // 如果已有 Audio Listener，则更新其位置
+            //        mAudioListener.transform.position = targetPosition;
 
-                    // 反转 Audio Listener 的方向，使其背对摄像机
-                    mAudioListener.transform.rotation = Quaternion.LookRotation(-Camera.main.transform.forward, Vector3.up);
+            //        // 反转 Audio Listener 的方向，使其背对摄像机
+            //        mAudioListener.transform.rotation = Quaternion.LookRotation(-Camera.main.transform.forward, Vector3.up);
 
-                }
-            }
+            //    }
+            //}
         }
     //    for (Kinect.JointType jt = Kinect.JointType.SpineBase; jt <= Kinect.JointType.ThumbRight; jt++)
     //    {

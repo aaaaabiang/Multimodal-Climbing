@@ -7,7 +7,7 @@ using System.Collections;
 public class RockCollider : MonoBehaviour
 {
     public UnityEngine.AudioSource audioSource; // 播放声音的组件
-    public float detectionRadius = 0.3f; // 碰撞检测的半径
+    public float detectionRadius = 2.0f; // 碰撞检测的半径
 
     void Start()
     {

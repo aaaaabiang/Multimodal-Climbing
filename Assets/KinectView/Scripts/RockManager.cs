@@ -15,6 +15,13 @@ public class RockManager : MonoBehaviour
 
     void Update()
     {
+        // 如果所有 Rock 都被消除了，则停止反馈并退出
+        if (currentTriggerIndex >= rocks.Count)
+        {
+            feedbackManager.StopBeepLoop();
+            return;
+        }
+
         if (bodySourceManager == null) return;
 
         Body[] bodies = bodySourceManager.GetData();
@@ -24,30 +31,34 @@ public class RockManager : MonoBehaviour
         {
             if (body != null && body.IsTracked)
             {
-                // 获取左右手以及头部的坐标
-                Vector3 leftHand = GetJointPosition(body, JointType.HandLeft);
-                Vector3 rightHand = GetJointPosition(body, JointType.HandRight);
+                // 获取左右脚以及头部的坐标
+                Vector3 leftFoot = GetJointPosition(body, JointType.FootLeft);
+                Vector3 rightFoot = GetJointPosition(body, JointType.FootRight);
                 Vector3 head = GetJointPosition(body, JointType.Head);
                 // 发送坐标给当前 Rock 进行碰撞检测
-                CheckRocksCollision(leftHand,rightHand,head);
+                CheckRocksCollision(leftFoot, rightFoot, head);
             }
         }
     }
 
-    private void CheckRocksCollision(Vector3 leftHandPosition, Vector3 rightHandPosition, Vector3 HeadPosition)
+    private void CheckRocksCollision(Vector3 leftFootPosition, Vector3 rightFootPosition, Vector3 HeadPosition)
     {
-        if (currentTriggerIndex >= rocks.Count) { feedbackManager.StopBeepLoop(); return; } // 所有点位已触发则不继续进行判断
+        // 再次检查，防止在 Update 循环中多帧处理，导致越界
+        if (currentTriggerIndex >= rocks.Count) return;
+
         RockCollider currentRock = rocks[currentTriggerIndex];
-        if (currentRock == null) { Debug.Log("Collision don't detected!"); return; }
+        if (currentRock == null) {/* Debug.Log("Collision don't detected!")*/; return; }
         Vector3 currentRockPosition = currentRock.transform.position;
-        if (currentRock.CheckCollision(leftHandPosition) || currentRock.CheckCollision(rightHandPosition)) // 检测碰撞
+        if (currentRock.CheckCollision(leftFootPosition) || currentRock.CheckCollision(rightFootPosition)) // 检测碰撞
         {
+            // 碰撞发生，销毁当前的 Rock 对象
+            Destroy(currentRock.gameObject);
             currentTriggerIndex++; // 移动到下一个 Rock
         }
         else
         {
-            //feedbackManager.TempoFeedback(leftHandPosition,rightHandPosition,HeadPosition,currentRockPosition);    //给出节奏反馈
-            feedbackManager.VolumeFeedback(leftHandPosition,rightHandPosition,HeadPosition, currentRockPosition);   //给出音量反馈
+            feedbackManager.TempoFeedback(leftFootPosition, rightFootPosition, HeadPosition,currentRockPosition);    //给出节奏反馈
+            //feedbackManager.VolumeFeedback(leftHandPosition,rightHandPosition,HeadPosition, currentRockPosition);   //给出音量反馈
             feedbackManager.PanFeedback(HeadPosition,currentRockPosition);
         }
     }
@@ -74,7 +85,7 @@ public class RockManager : MonoBehaviour
         return unityPosition + kinectOffset;
     }
 
-    // 调试用：在 Unity 场景中可视化手部位置
+    // 调试用：在 Unity 场景中可视化脚部位置
     private void OnDrawGizmos()
     {
         if (bodySourceManager == null) return;
@@ -86,15 +97,15 @@ public class RockManager : MonoBehaviour
         {
             if (body != null && body.IsTracked)
             {
-                Vector3 leftHand = GetJointPosition(body, JointType.HandLeft);
-                Vector3 rightHand = GetJointPosition(body, JointType.HandRight);
+                Vector3 leftFoot = GetJointPosition(body, JointType.FootLeft);
+                Vector3 rightFoot = GetJointPosition(body, JointType.FootRight);
                 Vector3 head = GetJointPosition(body, JointType.Head);
 
                 // 在 Unity 场景中绘制手部位置
                 Gizmos.color = Color.red;
-                Gizmos.DrawSphere(leftHand, 1f);    //左手红球
+                Gizmos.DrawSphere(leftFoot, 1f);    //左手红球
                 Gizmos.color = Color.blue;
-                Gizmos.DrawSphere(rightHand, 1f);   //右手蓝球
+                Gizmos.DrawSphere(rightFoot, 1f);   //右手蓝球
                 Gizmos.color = Color.white;
                 Gizmos.DrawSphere(head, 1f);        //头白球
             }
