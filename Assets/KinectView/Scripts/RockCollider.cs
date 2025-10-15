@@ -26,10 +26,10 @@ public class RockCollider : MonoBehaviour
             if (hitCollider.gameObject == this.gameObject)  //检测是否碰撞
             {
                 // 播放声音
-                if (!audioSource.isPlaying)
+                if (audioSource != null && audioSource.clip != null && !audioSource.isPlaying)
                 {
                     audioSource.Play();
-                    Debug.Log("Hand collided with target object in 3D. Sound played!");
+                    Debug.Log("Collision Sound Played for: " + gameObject.name);
                 }
                 return true; // 表示已触碰到目标
             }
