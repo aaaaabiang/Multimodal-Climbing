@@ -46,6 +46,7 @@ public class RockManager : MonoBehaviour
                         // 即使没有碰撞，也需要持续更新反馈，而不是只在 Update 周期末尾
                         feedbackManager.TempoFeedback(leftFoot, rightFoot, head, currentRockPosition);
                         feedbackManager.PanFeedback(head, currentRockPosition);
+                        feedbackManager.PitchFeedback(leftFoot, rightFoot, currentRockPosition);
                     }
                 }
                 // 发送坐标给当前 Rock 进行碰撞检测
@@ -80,7 +81,7 @@ public class RockManager : MonoBehaviour
         //else
         //{
         //    feedbackManager.TempoFeedback(leftFootPosition, rightFootPosition, HeadPosition, currentRockPosition);    //给出节奏反馈
-        //    //feedbackManager.VolumeFeedback(leftHandPosition,rightHandPosition,HeadPosition, currentRockPosition);   //给出音量反馈
+        //    //feedbackManager.VolumeFeedback(leftfootPosition,rightfootPosition,HeadPosition, currentRockPosition);   //给出音量反馈
         //    feedbackManager.PanFeedback(HeadPosition, currentRockPosition);
         //}
     }
@@ -110,6 +111,7 @@ public class RockManager : MonoBehaviour
                 Vector3 nextRockPosition = nextRock.transform.position;
                 feedbackManager.TempoFeedback(leftFootPosition, rightFootPosition, HeadPosition, nextRockPosition);
                 feedbackManager.PanFeedback(HeadPosition, nextRockPosition);
+                feedbackManager.PitchFeedback(leftFootPosition, rightFootPosition, nextRockPosition);
             }
         }
         else
