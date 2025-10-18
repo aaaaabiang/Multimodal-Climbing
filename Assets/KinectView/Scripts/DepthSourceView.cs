@@ -1,36 +1,31 @@
-﻿using UnityEngine;
+﻿// --- START OF FILE DepthSourceView.cs ---
+using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using Windows.Kinect;
-
-public enum DepthViewMode
-{
-    SeparateSourceReaders,
-    MultiSourceReader,
-}
+using UnityEditor; // 引入 UnityEditor 命名空间，保存 Asset 需要用到
 
 public class DepthSourceView : MonoBehaviour
 {
-    public DepthViewMode ViewMode = DepthViewMode.SeparateSourceReaders;
-    
-    public GameObject ColorSourceManager;
-    public GameObject DepthSourceManager;
     public GameObject MultiSourceManager;
-    
+
     private KinectSensor _Sensor;
     private CoordinateMapper _Mapper;
     private Mesh _Mesh;
+
     private Vector3[] _Vertices;
     private Vector2[] _UV;
-    private int[] _Triangles;
-    
-    // Only works at 4 right now
+    private int[] _Indices;
+
     private const int _DownsampleSize = 4;
-    private const double _DepthScale = 0.1f;
     private const int _Speed = 50;
-    
+
     private MultiSourceManager _MultiManager;
-    private ColorSourceManager _ColorManager;
-    private DepthSourceManager _DepthManager;
+
+    private bool _pointCloudGenerated = false;
+
+    // 新增：用于保存点云的按钮
+    public bool SavePointCloud = false; // 在Inspector中勾选即可保存一次
 
     void Start()
     {
@@ -38,198 +33,237 @@ public class DepthSourceView : MonoBehaviour
         if (_Sensor != null)
         {
             _Mapper = _Sensor.CoordinateMapper;
-            var frameDesc = _Sensor.DepthFrameSource.FrameDescription;
-
-            // Downsample to lower resolution
-            CreateMesh(frameDesc.Width / _DownsampleSize, frameDesc.Height / _DownsampleSize);
 
             if (!_Sensor.IsOpen)
             {
                 _Sensor.Open();
             }
+
+            if (MultiSourceManager != null)
+            {
+                _MultiManager = MultiSourceManager.GetComponent<MultiSourceManager>();
+            }
+
+            StartCoroutine(DelayedGeneratePointCloud());
+        }
+        else
+        {
+            Debug.LogError("Kinect Sensor not found!");
         }
     }
 
-    void CreateMesh(int width, int height)
+    IEnumerator DelayedGeneratePointCloud()
     {
-        _Mesh = new Mesh();
-        GetComponent<MeshFilter>().mesh = _Mesh;
-
-        _Vertices = new Vector3[width * height];
-        _UV = new Vector2[width * height];
-        _Triangles = new int[6 * ((width - 1) * (height - 1))];
-
-        int triangleIndex = 0;
-        for (int y = 0; y < height; y++)
+        while (!_Sensor.IsOpen)
         {
-            for (int x = 0; x < width; x++)
+            Debug.Log("DelayedGeneratePointCloud: Waiting for Kinect sensor to open...");
+            yield return null;
+        }
+
+        while (_MultiManager == null)
+        {
+            Debug.Log("DelayedGeneratePointCloud: Waiting for MultiSourceManager component...");
+            yield return null;
+            if (MultiSourceManager != null)
             {
-                int index = (y * width) + x;
+                _MultiManager = MultiSourceManager.GetComponent<MultiSourceManager>();
+            }
+        }
 
-                _Vertices[index] = new Vector3(x, -y, 0);
-                _UV[index] = new Vector2(((float)x / (float)width), ((float)y / (float)height));
+        while (!_MultiManager.HasValidDepthData())
+        {
+            Debug.Log("DelayedGeneratePointCloud: Waiting for MultiSourceManager to acquire valid depth data...");
+            yield return null;
+        }
 
-                // Skip the last row/col
-                if (x != (width - 1) && y != (height - 1))
+        while (_Sensor.DepthFrameSource.FrameDescription == null)
+        {
+            Debug.Log("DelayedGeneratePointCloud: Waiting for DepthFrameSource.FrameDescription...");
+            yield return null;
+        }
+
+        GenerateStaticPointCloud();
+    }
+
+    void GenerateStaticPointCloud()
+    {
+        if (_pointCloudGenerated) return; // 已经生成过，不再重复生成
+
+        var frameDesc = _Sensor.DepthFrameSource.FrameDescription;
+        ushort[] depthData = _MultiManager.GetDepthData();
+
+        if (depthData == null || depthData.Length == 0)
+        {
+            Debug.LogError("GenerateStaticPointCloud: Failed to get depth data from MultiSourceManager. depthData is null or empty.");
+            return;
+        }
+        Debug.Log($"GenerateStaticPointCloud (from MultiSourceManager): Depth data length: {depthData.Length}, first value: {depthData[0]}");
+
+        // 注意：这里不再需要 _DownsampleSize，因为点云通常就是每个像素一个点
+        // 但如果点太多，为了性能你可以继续使用 _DownsampleSize
+
+        List<Vector3> pointList = new List<Vector3>();
+        List<Vector2> uvList = new List<Vector2>(); // 虽然静态点云可能不需要UV，但为了通用性保留
+
+        CameraSpacePoint[] cameraSpacePoints = new CameraSpacePoint[depthData.Length];
+        _Mapper.MapDepthFrameToCameraSpace(depthData, cameraSpacePoints);
+
+        // 如果需要颜色纹理，MapDepthFrameToColorSpace 才有意义
+        // 如果点云只是为了形状，可以省略以下两行和UVs的计算
+        ColorSpacePoint[] colorSpacePoints = new ColorSpacePoint[depthData.Length];
+        _Mapper.MapDepthFrameToColorSpace(depthData, colorSpacePoints);
+
+        float colorWidth = _Sensor.ColorFrameSource.FrameDescription.Width;
+        float colorHeight = _Sensor.ColorFrameSource.FrameDescription.Height;
+
+
+        int validPointsCountCheck = 0;
+        for (int y = 0; y < frameDesc.Height; y += _DownsampleSize) // 可以调整 _DownsampleSize
+        {
+            for (int x = 0; x < frameDesc.Width; x += _DownsampleSize) // 可以调整 _DownsampleSize
+            {
+                int fullIndex = (y * frameDesc.Width) + x;
+
+                if (!float.IsNegativeInfinity(cameraSpacePoints[fullIndex].X) &&
+                    !float.IsNegativeInfinity(cameraSpacePoints[fullIndex].Y) &&
+                    !float.IsNegativeInfinity(cameraSpacePoints[fullIndex].Z))
                 {
-                    int topLeft = index;
-                    int topRight = topLeft + 1;
-                    int bottomLeft = topLeft + width;
-                    int bottomRight = bottomLeft + 1;
+                    Vector3 unityPoint = new Vector3(
+                        cameraSpacePoints[fullIndex].X * 10,
+                        cameraSpacePoints[fullIndex].Y * 10,
+                        cameraSpacePoints[fullIndex].Z * 10
+                    );
 
-                    _Triangles[triangleIndex++] = topLeft;
-                    _Triangles[triangleIndex++] = topRight;
-                    _Triangles[triangleIndex++] = bottomLeft;
-                    _Triangles[triangleIndex++] = bottomLeft;
-                    _Triangles[triangleIndex++] = topRight;
-                    _Triangles[triangleIndex++] = bottomRight;
+                    float kinectZ = cameraSpacePoints[fullIndex].Z;
+                    if (kinectZ > 0.4f && kinectZ < 5.0f)
+                    {
+                        pointList.Add(unityPoint);
+                        validPointsCountCheck++;
+
+                        var colorSpacePoint = colorSpacePoints[fullIndex];
+                        if (!float.IsNegativeInfinity(colorSpacePoint.X) && !float.IsNegativeInfinity(colorSpacePoint.Y) &&
+                            colorSpacePoint.X >= 0 && colorSpacePoint.X < colorWidth &&
+                            colorSpacePoint.Y >= 0 && colorSpacePoint.Y < colorHeight)
+                        {
+                            uvList.Add(new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight));
+                        }
+                        else
+                        {
+                            uvList.Add(Vector2.zero);
+                        }
+                    }
                 }
             }
         }
 
+        if (validPointsCountCheck == 0)
+        {
+            Debug.LogError("GenerateStaticPointCloud: No valid points found after mapping depth data to camera space and filtering. Check Kinect placement and ensure objects are in range.");
+            _pointCloudGenerated = false;
+            return;
+        }
+
+        CreatePointCloudMesh(pointList.ToArray(), uvList.ToArray());
+        _pointCloudGenerated = true;
+        Debug.Log("Static point cloud generated with " + pointList.Count + " points.");
+
+        // 如果在生成后立即需要保存
+        if (SavePointCloud)
+        {
+            SaveCurrentMeshAsAsset();
+            SavePointCloud = false; // 保存一次后自动取消勾选
+        }
+    }
+
+
+    void CreatePointCloudMesh(Vector3[] points, Vector2[] uvs)
+    {
+        _Mesh = new Mesh();
+        GetComponent<MeshFilter>().mesh = _Mesh;
+
+        _Vertices = points;
+        _UV = uvs;
+
+        _Indices = new int[_Vertices.Length];
+        for (int i = 0; i < _Vertices.Length; i++)
+        {
+            _Indices[i] = i;
+        }
+
         _Mesh.vertices = _Vertices;
         _Mesh.uv = _UV;
-        _Mesh.triangles = _Triangles;
-        _Mesh.RecalculateNormals();
+        _Mesh.SetIndices(_Indices, MeshTopology.Points, 0); // MeshTopology.Points 渲染为点
+
+        // 如果需要，也可以计算法线和切线，虽然点云通常不需要
+        //_Mesh.RecalculateNormals(); 
+        _Mesh.RecalculateBounds();
     }
-    
+
+    // 新增方法：保存当前的Mesh为Asset
+    private void SaveCurrentMeshAsAsset()
+    {
+        if (_Mesh == null)
+        {
+            Debug.LogWarning("No mesh generated to save.");
+            return;
+        }
+
+        // 确保在Assets文件夹下有一个目录来保存
+        string folderPath = "Assets/SavedPointClouds";
+        if (!AssetDatabase.IsValidFolder(folderPath))
+        {
+            AssetDatabase.CreateFolder("Assets", "SavedPointClouds");
+        }
+
+        // 生成一个唯一的文件名
+        string fileName = $"PointCloud_{System.DateTime.Now:yyyyMMdd_HHmmss}.asset";
+        string fullPath = $"{folderPath}/{fileName}";
+
+        AssetDatabase.CreateAsset(_Mesh, fullPath);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        Debug.Log($"Point Cloud Mesh saved successfully to: {fullPath}");
+    }
+
+
     void OnGUI()
     {
         GUI.BeginGroup(new Rect(0, 0, Screen.width, Screen.height));
-        GUI.TextField(new Rect(Screen.width - 250 , 10, 250, 20), "DepthMode: " + ViewMode.ToString());
+        GUI.TextField(new Rect(Screen.width - 250, 10, 250, 20), "Static Point Cloud");
+        string status = _pointCloudGenerated ? $"Static Point Cloud (Points: {_Vertices.Length})" : "Waiting for Depth Data...";
+        GUI.TextField(new Rect(Screen.width - 250, 30, 250, 20), status);
         GUI.EndGroup();
     }
 
     void Update()
     {
-        if (_Sensor == null)
+        if (_Sensor == null || !_pointCloudGenerated)
         {
             return;
         }
-        
-        if (Input.GetButtonDown("Fire1"))
-        {
-            if(ViewMode == DepthViewMode.MultiSourceReader)
-            {
-                ViewMode = DepthViewMode.SeparateSourceReaders;
-            }
-            else
-            {
-                ViewMode = DepthViewMode.MultiSourceReader;
-            }
-        }
-        
+
         float yVal = Input.GetAxis("Horizontal");
         float xVal = -Input.GetAxis("Vertical");
 
         transform.Rotate(
-            (xVal * Time.deltaTime * _Speed), 
-            (yVal * Time.deltaTime * _Speed), 
-            0, 
+            (xVal * Time.deltaTime * _Speed),
+            (yVal * Time.deltaTime * _Speed),
+            0,
             Space.Self);
-            
-        if (ViewMode == DepthViewMode.SeparateSourceReaders)
-        {
-            if (ColorSourceManager == null)
-            {
-                return;
-            }
-            
-            _ColorManager = ColorSourceManager.GetComponent<ColorSourceManager>();
-            if (_ColorManager == null)
-            {
-                return;
-            }
-            
-            if (DepthSourceManager == null)
-            {
-                return;
-            }
-            
-            _DepthManager = DepthSourceManager.GetComponent<DepthSourceManager>();
-            if (_DepthManager == null)
-            {
-                return;
-            }
-            
-            gameObject.GetComponent<Renderer>().material.mainTexture = _ColorManager.GetColorTexture();
-            RefreshData(_DepthManager.GetData(),
-                _ColorManager.ColorWidth,
-                _ColorManager.ColorHeight);
-        }
-        else
-        {
-            if (MultiSourceManager == null)
-            {
-                return;
-            }
-            
-            _MultiManager = MultiSourceManager.GetComponent<MultiSourceManager>();
-            if (_MultiManager == null)
-            {
-                return;
-            }
-            
-            gameObject.GetComponent<Renderer>().material.mainTexture = _MultiManager.GetColorTexture();
-            
-            RefreshData(_MultiManager.GetDepthData(),
-                        _MultiManager.ColorWidth,
-                        _MultiManager.ColorHeight);
-        }
-    }
-    
-    private void RefreshData(ushort[] depthData, int colorWidth, int colorHeight)
-    {
-        var frameDesc = _Sensor.DepthFrameSource.FrameDescription;
-        
-        ColorSpacePoint[] colorSpace = new ColorSpacePoint[depthData.Length];
-        _Mapper.MapDepthFrameToColorSpace(depthData, colorSpace);
-        
-        for (int y = 0; y < frameDesc.Height; y += _DownsampleSize)
-        {
-            for (int x = 0; x < frameDesc.Width; x += _DownsampleSize)
-            {
-                int indexX = x / _DownsampleSize;
-                int indexY = y / _DownsampleSize;
-                int smallIndex = (indexY * (frameDesc.Width / _DownsampleSize)) + indexX;
-                
-                double avg = GetAvg(depthData, x, y, frameDesc.Width, frameDesc.Height);
-                
-                avg = avg * _DepthScale;
-                
-                _Vertices[smallIndex].z = (float)avg;
-                
-                // Update UV mapping with CDRP
-                var colorSpacePoint = colorSpace[(y * frameDesc.Width) + x];
-                _UV[smallIndex] = new Vector2(colorSpacePoint.X / colorWidth, colorSpacePoint.Y / colorHeight);
-            }
-        }
-        
-        _Mesh.vertices = _Vertices;
-        _Mesh.uv = _UV;
-        _Mesh.triangles = _Triangles;
-        _Mesh.RecalculateNormals();
-    }
-    
-    private double GetAvg(ushort[] depthData, int x, int y, int width, int height)
-    {
-        double sum = 0.0;
-        
-        for (int y1 = y; y1 < y + 4; y1++)
-        {
-            for (int x1 = x; x1 < x + 4; x1++)
-            {
-                int fullIndex = (y1 * width) + x1;
-                
-                if (depthData[fullIndex] == 0)
-                    sum += 4500;
-                else
-                    sum += depthData[fullIndex];
-                
-            }
-        }
 
-        return sum / 16;
+        // 可以在这里添加一个按键来触发保存，或者使用 Inspector 上的 SavePointCloud 变量
+        // if (Input.GetKeyDown(KeyCode.S)) 
+        // {
+        //     SaveCurrentMeshAsAsset();
+        // }
+
+        // 如果您在Inspector中勾选了SavePointCloud，这里触发保存
+        if (SavePointCloud)
+        {
+            SaveCurrentMeshAsAsset();
+            SavePointCloud = false; // 保存一次后自动取消勾选
+        }
     }
 
     void OnApplicationQuit()
@@ -238,15 +272,7 @@ public class DepthSourceView : MonoBehaviour
         {
             _Mapper = null;
         }
-        
-        if (_Sensor != null)
-        {
-            if (_Sensor.IsOpen)
-            {
-                _Sensor.Close();
-            }
-
-            _Sensor = null;
-        }
+        // Kinect传感器由MultiSourceManager管理关闭
     }
 }
+// --- END OF FILE DepthSourceView.cs ---
