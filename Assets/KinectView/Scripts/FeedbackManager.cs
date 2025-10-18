@@ -51,36 +51,36 @@ public class FeedbackManager : MonoBehaviour
         }
     }    
     
-    public void VolumeFeedback(Vector3 leftfootPosition, Vector3 rightfootPosition, Vector3 HeadPosition, Vector3 rockPosition)
-    {
-        if (Time.time - lastVolFeedbackTime < feedbackUpdateInterval) return;
-        lastVolFeedbackTime = Time.time; //添加最小反馈时间间隔
+    //public void VolumeFeedback(Vector3 leftfootPosition, Vector3 rightfootPosition, Vector3 HeadPosition, Vector3 rockPosition)
+    //{
+    //    if (Time.time - lastVolFeedbackTime < feedbackUpdateInterval) return;
+    //    lastVolFeedbackTime = Time.time; //添加最小反馈时间间隔
 
-        float MaxDistance = 15.0f; // 声音开始播放的距离
-        float MinDistance = 0.3f; // 声音达到最大值的距离（碰撞检测半径）
-        float exp = 3f; //指数映射参数
-        float leftFootDistance = Vector3.Distance(leftfootPosition, rockPosition);
-        float rightFootDistance = Vector3.Distance(rightfootPosition, rockPosition);
-        float distance = Mathf.Min(leftFootDistance, rightFootDistance);  // 取双脚间最小的距离
-        float NormalizedDistance = Mathf.Clamp01((MaxDistance - distance) / (MaxDistance - MinDistance));//将距离归一化为0-1之间
-        float volume = Mathf.Pow(NormalizedDistance, exp);
+    //    float MaxDistance = 15.0f; // 声音开始播放的距离
+    //    float MinDistance = 0.3f; // 声音达到最大值的距离（碰撞检测半径）
+    //    float exp = 3f; //指数映射参数
+    //    float leftFootDistance = Vector3.Distance(leftfootPosition, rockPosition);
+    //    float rightFootDistance = Vector3.Distance(rightfootPosition, rockPosition);
+    //    float distance = Mathf.Min(leftFootDistance, rightFootDistance);  // 取双脚间最小的距离
+    //    float NormalizedDistance = Mathf.Clamp01((MaxDistance - distance) / (MaxDistance - MinDistance));//将距离归一化为0-1之间
+    //    float volume = Mathf.Pow(NormalizedDistance, exp);
 
-        if (audioSource != null)
-        {
-            audioSource.volume = volume; // 设置音量
+    //    if (audioSource != null)
+    //    {
+    //        audioSource.volume = volume; // 设置音量
 
-            // 如果距离进入触发范围，则播放提示音
-            if (distance < MaxDistance)
-            {
-                StartBeepLoop(); //启动提示音
-                //Debug.Log("Audio started playing at volume: " + audioSource.volume);
-            }
-            else
-            {
-                StopBeepLoop(); //停止提示音
-            }
-        }
-    }
+    //        // 如果距离进入触发范围，则播放提示音
+    //        if (distance < MaxDistance)
+    //        {
+    //            StartBeepLoop(); //启动提示音
+    //            //Debug.Log("Audio started playing at volume: " + audioSource.volume);
+    //        }
+    //        else
+    //        {
+    //            StopBeepLoop(); //停止提示音
+    //        }
+    //    }
+    //}
 
     public void PanFeedback(Vector3 HeadPosition, Vector3 rockPosition)
     {
@@ -111,7 +111,7 @@ public class FeedbackManager : MonoBehaviour
     public void PitchFeedback(Vector3 leftFootPosition, Vector3 rightFootPosition, Vector3 rockPosition)
     {
         // ------------------ 音高反馈的内部参数 ------------------
-        float highPitch = 1.5f;   // 高于目标时的音高
+        float highPitch = 2.0f;   // 高于目标时的音高
         float lowPitch = 0.7f;    // 低于目标时的音高
         // --------------------------------------------------------
 
@@ -157,20 +157,22 @@ public class FeedbackManager : MonoBehaviour
         float minDistance = 0.3f; // 最小距离（对应最大节奏）
         float maxDistance = 15.0f; // 最大距离（对应最小节奏）
         float minTempo = 0.2f;    // 最小节奏
-        float maxTempo = 4f;    // 最大节奏
+        float maxTempo = 3f;    // 最大节奏
         float currentTempo; // 当前节奏
 
-        float leftFootDistance = Vector3.Distance(leftfootPosition, rockPosition);
-        float rightFootDistance = Vector3.Distance(rightfootPosition, rockPosition);
-        float distance = Mathf.Min(leftFootDistance, rightFootDistance);  // 取双手间最小的距离
-        
-        currentTempo = Mathf.Lerp(minTempo, maxTempo, Mathf.InverseLerp(maxDistance, minDistance, distance)); //线性插值计算速度
+        // ------------------ 节奏反馈的内部参数（根据X轴） ------------------
+        // 此处沿用“离岩点X轴最近的脚”的逻辑
+        float leftFootXDistanceAbs = Mathf.Abs(leftfootPosition.x - rockPosition.x);
+        float rightFootXDistanceAbs = Mathf.Abs(rightfootPosition.x - rockPosition.x);
+        float xDistance = Mathf.Min(leftFootXDistanceAbs, rightFootXDistanceAbs);  // 取双脚X轴绝对差值中最小的
+
+        currentTempo = Mathf.Lerp(minTempo, maxTempo, Mathf.InverseLerp(maxDistance, minDistance, xDistance)); //线性插值计算速度
 
         if (audioSource != null)
         {
             SetTempo(currentTempo); //更新节奏
             // 如果距离进入触发范围，则播放提示音
-            if (distance < maxDistance)
+            if (xDistance < maxDistance)
             {
                 StartBeepLoop(); //启动提示音
                 //Debug.Log("Audio started playing at Tempo: " + currentTempo);
