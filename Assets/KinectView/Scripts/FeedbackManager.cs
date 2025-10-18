@@ -87,13 +87,25 @@ public class FeedbackManager : MonoBehaviour
         if (Time.time - lastPanFeedbackTime < feedbackUpdateInterval) return;
         lastPanFeedbackTime = Time.time; //添加最小反馈时间间隔
 
-        float panStereo = 0f; //设置声相初始值
+        // ------------------ 声相反馈的内部参数 ------------------
+        float maxHorizontalPanDistance = 2.0f; // 在水平方向上，距离头部多远时声相达到完全左/右
+        // --------------------------------------------------------
+        if (audioSource == null) return;
+
         Vector3 directionToTarget = rockPosition - HeadPosition; // 计算方位差值
-        panStereo = directionToTarget.x < 0 ? 1.0f : -1.0f; // 判断声音方位
-        if (audioSource != null)
-        {
-            audioSource.panStereo = panStereo;  // 设置声相
-        }
+
+        // 获取水平方向上的差值
+        float horizontalDifference = directionToTarget.x;
+
+        // 将水平差值限制在设定的最大距离内
+        float clampedDifference = Mathf.Clamp(horizontalDifference, -maxHorizontalPanDistance, maxHorizontalPanDistance);
+
+        // 将限制后的差值映射到 -1.0 (左) 到 1.0 (右) 的声相范围
+        // Mathf.InverseLerp(a, b, value) 将 value 从 a 到 b 的范围映射到 0 到 1 的范围
+        // 然后再用 Mathf.Lerp(min, max, t) 将 0 到 1 的值映射到 -1.0 到 1.0 的声相
+        float panStereo = Mathf.Lerp(-1.0f, 1.0f, Mathf.InverseLerp(-maxHorizontalPanDistance, maxHorizontalPanDistance, clampedDifference));
+
+        audioSource.panStereo = -panStereo;  // 设置声相
     }
     // 新增：音高反馈方法，基于二元离散和最近脚的Y轴，参数在函数内部定义
     public void PitchFeedback(Vector3 leftFootPosition, Vector3 rightFootPosition, Vector3 rockPosition)
