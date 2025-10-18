@@ -13,6 +13,9 @@ public class FeedbackManager : MonoBehaviour
     private float lastPanFeedbackTime; //上次声相反馈时刻
     private float lastPitchFeedbackTime; // 新增：上次音高反馈时刻
 
+    //新增声相反馈基于头/脚的选择
+    public enum PanCalculationMode { HeadBased, FootBased };
+    public PanCalculationMode currentPanMode = PanCalculationMode.FootBased;
     void Start()
     {
         if (audioSource == null)
@@ -82,8 +85,9 @@ public class FeedbackManager : MonoBehaviour
     //    }
     //}
 
-    public void PanFeedback(Vector3 HeadPosition, Vector3 rockPosition)
+    public void PanFeedback(Vector3 leftFootPosition, Vector3 rightFootPosition, Vector3 HeadPosition, Vector3 rockPosition)
     {
+        float panStereo = 0f;
         if (Time.time - lastPanFeedbackTime < feedbackUpdateInterval) return;
         lastPanFeedbackTime = Time.time; //添加最小反馈时间间隔
 
@@ -92,18 +96,52 @@ public class FeedbackManager : MonoBehaviour
         // --------------------------------------------------------
         if (audioSource == null) return;
 
-        Vector3 directionToTarget = rockPosition - HeadPosition; // 计算方位差值
 
-        // 获取水平方向上的差值
-        float horizontalDifference = directionToTarget.x;
+        if (currentPanMode == PanCalculationMode.HeadBased)
+        {
+            Vector3 directionToTarget = rockPosition - HeadPosition; // 计算方位差值
 
-        // 将水平差值限制在设定的最大距离内
-        float clampedDifference = Mathf.Clamp(horizontalDifference, -maxHorizontalPanDistance, maxHorizontalPanDistance);
+            // 获取水平方向上的差值
+            float horizontalDifference = directionToTarget.x;
 
-        // 将限制后的差值映射到 -1.0 (左) 到 1.0 (右) 的声相范围
-        // Mathf.InverseLerp(a, b, value) 将 value 从 a 到 b 的范围映射到 0 到 1 的范围
-        // 然后再用 Mathf.Lerp(min, max, t) 将 0 到 1 的值映射到 -1.0 到 1.0 的声相
-        float panStereo = Mathf.Lerp(-1.0f, 1.0f, Mathf.InverseLerp(-maxHorizontalPanDistance, maxHorizontalPanDistance, clampedDifference));
+            // 将水平差值限制在设定的最大距离内
+            float clampedDifference = Mathf.Clamp(horizontalDifference, -maxHorizontalPanDistance, maxHorizontalPanDistance);
+
+            // 将限制后的差值映射到 -1.0 (左) 到 1.0 (右) 的声相范围
+            // Mathf.InverseLerp(a, b, value) 将 value 从 a 到 b 的范围映射到 0 到 1 的范围
+            // 然后再用 Mathf.Lerp(min, max, t) 将 0 到 1 的值映射到 -1.0 到 1.0 的声相
+            panStereo = Mathf.Lerp(-1.0f, 1.0f, Mathf.InverseLerp(-maxHorizontalPanDistance, maxHorizontalPanDistance, clampedDifference));
+
+        }
+        else if (currentPanMode == PanCalculationMode.FootBased)
+        {
+            // 1. 获取最近脚的X轴位置作为参考
+            float leftFootDistance = Vector3.Distance(leftFootPosition, rockPosition);
+            float rightFootDistance = Vector3.Distance(rightFootPosition, rockPosition);
+            float referenceFootX;
+
+            if (leftFootDistance < rightFootDistance)
+            {
+                referenceFootX = leftFootPosition.x;
+            }
+            else
+            {
+                referenceFootX = rightFootPosition.x;
+            }
+
+            // 2. 计算岩点与最近脚的水平距离差
+            float horizontalDifference = rockPosition.x - referenceFootX;
+            // 3. 根据距离和高度差设置音高
+
+            // 将水平差值限制在设定的最大距离内
+            float clampedDifference = Mathf.Clamp(horizontalDifference, -maxHorizontalPanDistance, maxHorizontalPanDistance);
+
+            // 将限制后的差值映射到 -1.0 (左) 到 1.0 (右) 的声相范围
+            // Mathf.InverseLerp(a, b, value) 将 value 从 a 到 b 的范围映射到 0 到 1 的范围
+            // 然后再用 Mathf.Lerp(min, max, t) 将 0 到 1 的值映射到 -1.0 到 1.0 的声相
+            panStereo = Mathf.Lerp(-1.0f, 1.0f, Mathf.InverseLerp(-maxHorizontalPanDistance, maxHorizontalPanDistance, clampedDifference));
+
+        }
 
         audioSource.panStereo = -panStereo;  // 设置声相
     }

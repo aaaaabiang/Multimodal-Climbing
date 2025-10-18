@@ -45,7 +45,7 @@ public class RockManager : MonoBehaviour
                         Vector3 currentRockPosition = currentRock.transform.position;
                         // 即使没有碰撞，也需要持续更新反馈，而不是只在 Update 周期末尾
                         feedbackManager.TempoFeedback(leftFoot, rightFoot, head, currentRockPosition);
-                        feedbackManager.PanFeedback(head, currentRockPosition);
+                        feedbackManager.PanFeedback(leftFoot, rightFoot, head, currentRockPosition);
                         feedbackManager.PitchFeedback(leftFoot, rightFoot, currentRockPosition);
                     }
                 }
@@ -110,7 +110,7 @@ public class RockManager : MonoBehaviour
                 // 这里我们立即触发一次反馈，确保新岩石的反馈立即开始
                 Vector3 nextRockPosition = nextRock.transform.position;
                 feedbackManager.TempoFeedback(leftFootPosition, rightFootPosition, HeadPosition, nextRockPosition);
-                feedbackManager.PanFeedback(HeadPosition, nextRockPosition);
+                feedbackManager.PanFeedback(leftFootPosition, rightFootPosition, HeadPosition, nextRockPosition);
                 feedbackManager.PitchFeedback(leftFootPosition, rightFootPosition, nextRockPosition);
             }
         }
