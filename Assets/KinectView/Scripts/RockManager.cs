@@ -26,7 +26,29 @@ public class RockManager : MonoBehaviour
         if (bodySourceManager == null) return;
 
         Body[] bodies = bodySourceManager.GetData();
-        if (bodies == null) return; //监测骨点数据，若无则直接退出
+        if (bodies == null)
+        {
+            // If no body data is available, stop the beep loop.
+            feedbackManager.StopBeepLoop();
+            return; //监测骨点数据，若无则直接退出
+        }
+        // Check if there's at least one tracked body.
+        bool anyBodyTracked = false;
+        foreach (var body in bodies)
+        {
+            if (body != null && body.IsTracked)
+            {
+                anyBodyTracked = true;
+                break;
+            }
+        }
+        // If no bodies are tracked, stop the feedback and return.
+        if (!anyBodyTracked)
+        {
+            feedbackManager.StopBeepLoop();
+            return;
+        }
+
 
         foreach (var body in bodies)
         {

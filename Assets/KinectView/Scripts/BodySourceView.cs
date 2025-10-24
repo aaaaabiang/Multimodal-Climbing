@@ -14,8 +14,6 @@ public class BodySourceView : MonoBehaviour
     //public GameObject BodySourceManager;
 
     private Dictionary<ulong, GameObject> mBodies = new Dictionary<ulong, GameObject>();
-    //private Dictionary<ulong, GameObject> _Bodies = new Dictionary<ulong, GameObject>();
-    //private BodySourceManager _BodyManager;
 
     private List<JointType> _joints = new List<JointType>
     {
@@ -127,6 +125,8 @@ public class BodySourceView : MonoBehaviour
             if (!trackedIds.Contains(trackingId))
             {
                 Destroy(mBodies[trackingId]);
+                Destroy(mBodies[trackingId]);
+
                 mBodies.Remove(trackingId);
             }
         }

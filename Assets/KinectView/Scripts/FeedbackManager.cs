@@ -151,6 +151,7 @@ public class FeedbackManager : MonoBehaviour
         // ------------------ 音高反馈的内部参数 ------------------
         float highPitch = 2.0f;   // 高于目标时的音高
         float lowPitch = 0.7f;    // 低于目标时的音高
+        float midPitch = 1.0f;    // 与目标持平时的音高
         // --------------------------------------------------------
 
         if (Time.time - lastPitchFeedbackTime < feedbackUpdateInterval) return;
@@ -184,6 +185,10 @@ public class FeedbackManager : MonoBehaviour
         {
             audioSource.pitch = lowPitch;
         }
+        else // 岩点与参考脚持平
+        {
+            audioSource.pitch = midPitch;
+        }
     }
 
     public void TempoFeedback(Vector3 leftfootPosition, Vector3 rightfootPosition, Vector3 HeadPosition, Vector3 rockPosition)
@@ -192,9 +197,9 @@ public class FeedbackManager : MonoBehaviour
         lastTempoFeedbackTime = Time.time; //添加最小反馈时间间隔
 
         // 定义阈值
-        float minDistance = 0.3f; // 最小距离（对应最大节奏）
-        float maxDistance = 15.0f; // 最大距离（对应最小节奏）
-        float minTempo = 0.2f;    // 最小节奏
+        float minDistance = 0.1f; // 最小距离（对应最大节奏）
+        float maxDistance = 10.0f; // 最大距离（对应最小节奏）
+        float minTempo = 0.1f;    // 最小节奏
         float maxTempo = 3f;    // 最大节奏
         float currentTempo; // 当前节奏
 
