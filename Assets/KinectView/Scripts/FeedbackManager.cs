@@ -197,10 +197,10 @@ public class FeedbackManager : MonoBehaviour
         lastTempoFeedbackTime = Time.time; //添加最小反馈时间间隔
 
         // 定义阈值
-        float minDistance = 0.1f; // 最小距离（对应最大节奏）
+        float minDistance = 0.01f; // 最小距离（对应最大节奏）
         float maxDistance = 10.0f; // 最大距离（对应最小节奏）
         float minTempo = 0.1f;    // 最小节奏
-        float maxTempo = 3f;    // 最大节奏
+        float maxTempo = 10f;    // 最大节奏
         float currentTempo; // 当前节奏
 
         // ------------------ 节奏反馈的内部参数（根据X轴） ------------------
