@@ -14,12 +14,30 @@ public class RockManager : MonoBehaviour
     private Vector3 kinectOffset = new Vector3(0, 0, 0);  // 偏移校准值
     private bool useMirroring = false;                    // 是否使用镜像处理
 
+    // --- 新增变量 ---
+    private float startTime; // 游戏开始或重置的时间
+    private float lastCollisionTime; // 上次碰撞 Rock 的时间
+    private List<float> collisionTimes = new List<float>(); // 存储每次碰撞的相对时间
+    // --- 新增变量 ---
+
+    void Start()
+    {
+        // --- 新增初始化逻辑 ---
+        startTime = Time.time; // 记录游戏开始时间
+        lastCollisionTime = startTime; // 第一次碰撞的相对时间将从这里开始计算
+        collisionTimes.Clear(); // 确保列表是空的，以防万一
+        // --- 新增初始化逻辑 ---
+    }
+
     void Update()
     {
         // 如果所有 Rock 都被消除了，则停止反馈并退出
         if (currentTriggerIndex >= rocks.Count)
         {
             feedbackManager.StopBeepLoop();
+            // --- 可以在这里打印总计时或所有记录的时间 ---
+             //Debug.Log($"All rocks cleared! Total time: {Time.time - startTime:F2} seconds.");
+             //Debug.Log("Individual collision times (since last rock): " + string.Join(", ", collisionTimes));
             return;
         }
 
@@ -114,6 +132,15 @@ public class RockManager : MonoBehaviour
         // 你可能需要调整这个延迟时间，取决于你的碰撞音的长度
         yield return new WaitForSeconds(collidedRock.audioSource != null && collidedRock.audioSource.clip != null ? collidedRock.audioSource.clip.length : 0.5f);
 
+        // --- 新增：记录并打印碰撞时间 ---
+        float currentTime = Time.time;
+        float relativeTime = currentTime - lastCollisionTime; // 相对于上次碰撞的时间
+        collisionTimes.Add(relativeTime);
+
+        Debug.Log($"Rock {currentTriggerIndex + 1} collided! Time since last rock: {relativeTime:F2} seconds.");
+        lastCollisionTime = currentTime; // 更新上次碰撞时间
+        // --- 新增结束 ---
+
         // 如果碰撞的 Rock 仍然存在 (以防万一)
         if (collidedRock != null && collidedRock.gameObject != null)
         {
@@ -140,6 +167,10 @@ public class RockManager : MonoBehaviour
         {
             // 如果没有下一个 Rock 了，确保停止所有反馈
             feedbackManager.StopBeepLoop();
+            // --- 可以在所有 Rock 都被消除后，打印总时间或所有记录的时间 ---
+            Debug.Log($"All rocks cleared! Total duration from start: {Time.time - startTime:F2} seconds.");
+            Debug.Log("Individual collision times (since last rock): " + string.Join("s, ", collisionTimes) + "s");
+            // --- 结束 ---
         }
 
         isHandlingCollision = false; // 碰撞处理完毕，重置标记，Update 将恢复持续反馈
